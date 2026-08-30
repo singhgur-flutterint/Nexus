@@ -1,0 +1,8 @@
+from pyspark.sql import Row
+
+# Create a small dummy dataframe
+data = [Row(id=1, name="Alice"), Row(id=2, name="Bob")]
+df = spark.createDataFrame(data)
+
+# This will fail — 'email' column doesn't exist
+df.select("email").show()

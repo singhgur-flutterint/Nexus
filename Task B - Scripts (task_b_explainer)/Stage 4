@@ -1,0 +1,11 @@
+import requests
+
+slack_message = {
+    "text": f"*Nexus: Pipeline Failure Detected* :rotating_light:\n"
+            f"*Task:* {task_name}\n"
+            f"*Severity:* {explanation['severity']}\n"
+            f"*Root Cause:* {explanation['root_cause']}\n"
+            f"*Suggested Fix:* {explanation['suggested_fix']}"
+}
+resp = requests.post(webhook_url, json=slack_message)
+print(f"Slack response: {resp.status_code}")

@@ -1,0 +1,11 @@
+from pyspark.sql import Row
+import datetime
+
+row = Row(
+    timestamp=str(datetime.datetime.utcnow()),
+    task_name=task_name,
+    root_cause=explanation["root_cause"],
+    suggested_fix=explanation["suggested_fix"],
+    severity=explanation["severity"]
+)
+spark.createDataFrame([row]).write.mode("append").saveAsTable("nexus.failure_log")

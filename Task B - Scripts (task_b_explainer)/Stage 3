@@ -1,0 +1,55 @@
+import boto3, json
+from botocore.exceptions import ClientError
+
+REGIONS = ["eu-west-2", "eu-north-1"]
+webhook_url = dbutils.secrets.get("nexus-scope", "slack-webhook")
+pipeline_context = "Nexus demo pipeline"
+
+prompt = f"""You are a data pipeline failure analyst. Respond ONLY with valid JSON, no markdown:
+{{
+  "root_cause": "...",
+  "suggested_fix": "...",
+  "severity": "low|medium|high"
+}}
+
+Task name: {task_name}
+Error message: {error_message}
+Pipeline context: {pipeline_context}
+"""
+
+request_body = json.dumps({
+    "schemaVersion": "messages-v1",
+    "messages": [{"role": "user", "content": [{"text": prompt}]}],
+    "inferenceConfig": {"maxTokens": 500, "temperature": 0.2}
+})
+
+explanation = None
+last_error = None
+for region in REGIONS:
+    try:
+        client = boto3.client(
+            "bedrock-runtime",
+            region_name=region,
+            aws_access_key_id=dbutils.secrets.get("nexus-scope", "aws-access-key"),
+            aws_secret_access_key=dbutils.secrets.get("nexus-scope", "aws-secret-key")
+        )
+        response = client.invoke_model(modelId="amazon.nova-lite-v1:0", body=request_body)
+        result = json.loads(response["body"].read())
+        raw_text = result["output"]["message"]["content"][0]["text"]
+        clean = raw_text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        explanation = json.loads(clean)
+        break
+    except ClientError as e:
+        last_error = e
+        if e.response["Error"]["Code"] == "ThrottlingException":
+            continue
+        raise
+
+if explanation is None:
+    explanation = {
+        "root_cause": f"Could not reach Bedrock: {last_error}",
+        "suggested_fix": "Check Bedrock quota/region availability and retry.",
+        "severity": "medium"
+    }
+
+print(explanation)

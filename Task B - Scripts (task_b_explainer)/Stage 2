@@ -1,0 +1,21 @@
+import requests
+
+# Databricks workspace URL and a token with API access
+DATABRICKS_HOST = spark.conf.get("spark.databricks.workspaceUrl")
+token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
+
+headers = {"Authorization": f"Bearer {token}"}
+url = f"https://{DATABRICKS_HOST}/api/2.1/jobs/runs/get"
+resp = requests.get(url, headers=headers, params={"run_id": parent_run_id})
+run_info = resp.json()
+
+# Pull Task A's specific result
+task_a_result = next(
+    (t for t in run_info.get("tasks", []) if t["task_key"] == "task_a_etl"),
+    {}
+)
+error_message = task_a_result.get("state", {}).get("state_message", "Unknown error")
+task_name = task_a_result.get("task_key", "task_a_etl")
+
+print(f"Task: {task_name}")
+print(f"Error: {error_message}")
